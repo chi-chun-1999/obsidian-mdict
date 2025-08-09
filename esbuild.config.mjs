@@ -45,6 +45,7 @@ await esbuild.build({
         '@codemirror/text',
         '@codemirror/tooltip',
         '@codemirror/view',
+		'node:fs',
         ...builtins],
     format: 'cjs',
     watch: !prod,

@@ -4,6 +4,7 @@
 # Intellij
 *.iml
 .idea
+mdict
 
 # npm
 node_modules

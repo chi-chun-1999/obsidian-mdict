@@ -16,7 +16,7 @@ export class MyView extends ItemView {
         return "Vue Stater";
     }
     getIcon(): string {
-        return "dice";
+        return "book";
     }
     async onOpen() {
         const container = this.containerEl.children[1];

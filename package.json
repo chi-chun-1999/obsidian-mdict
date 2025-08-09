@@ -12,6 +12,7 @@
 	"author": "",
 	"license": "MIT",
 	"dependencies": {
+		"js-mdict": "^6.0.8",
 		"vue": "^3.2.31"
 	},
 	"devDependencies": {
