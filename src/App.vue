@@ -7,9 +7,11 @@
 
 <script setup lang="tsx">
 
-import {MdictEngine} from './mdictEngine';
-import { ref, watch, nextTick } from "vue";
+import {MdictEngine, spxBase64ToMp3Base64, convertSpxBase64ToMp3Base64} from './mdictEngine';
+// import {MdictEngine, spxBase64ToMp3Base64} from './mdictEngine';
+import { ref, watch, nextTick, onMounted, onUnmounted } from "vue";
 import {parse} from 'node-html-parser';
+import ffmpeg from 'fluent-ffmpeg';
 
 
 let hi = ref("");
@@ -18,8 +20,11 @@ const searchWord = ref("");
 function performSearch() {
     submittedWord.value = searchWord.value;
 }
-let mdictEngine = new MdictEngine("/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/LDCE6/LongmanDictionaryOfContemporaryEnglish6thEnEn.mdx");
-// let mdictEngine = new MdictEngine("/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/CALD4/CALD4.mdx");
+// let mdictEngine = new MdictEngine("/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/LDCE6/LongmanDictionaryOfContemporaryEnglish6thEnEn.mdx");
+// let mdictEngine = new MdictEngine("/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/OALD9/OALD9EnEn.mdx");
+let mdictEngine = new MdictEngine("/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/CALD4/CALD4.mdx");
+// let mdictEngine = new MdictEngine("/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/OELDOnlineV1-51/OELDOnlineV1-51.mdx");
+// let mdictEngine = new MdictEngine("/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/LomanPhrasalVerb/[英-英] Longman Phrasal Verbs Dictionary 2nd Edition.mdx");
 
 let mdictResult = ref("");
 const containerRef = ref<HTMLDivElement | null>(null);
@@ -52,7 +57,117 @@ let definition = async () => {
 	}
 
 	mdictResult.value = root.toString();
+
+	// const sounds = root.querySelectorAll('a');
+	// sounds.forEach(sound => {
+	// 	// console.log("Sound element:", sound);
+	// 	let href = sound.getAttribute('href');
+	// 	if (href) {
+	// 		if (href.startsWith('sound')) {
+	// 			// If the href is a full URL, we can skip it
+	// 			return;
+	// 		}
+	// 		// href = href.replaceAll('/','\\');
+	// 		// href = '\\' + href; // Ensure href starts with '//' for lookup
+	// 		// sound.setAttribute('href', href);
+	// 		//
+	// 		// // console.log("Updated sound href:", href);
+	// 		// const soundData = mdictEngine.lookupMdd(href);
+	// 		// if (!soundData) {
+	// 		// 	console.warn(`Sound data not found for href: ${href}`);
+	// 		// 	return;
+	// 		// }
+	// 		// const base64Sound = arrayBufferToBase64(soundData);
+	// 		// sound.setAttribute('href', `data:audio/mpeg;base64,${base64Sound}`);
+	// 	}
+	// });
 }
+
+async function handleContainerClick(event: MouseEvent){
+	const target = (event.target as HTMLElement).closest('a[href^="sound://"]');
+	if (!target){
+		console.log("Clicked sound link:", target);
+	}
+	event.preventDefault();
+	const href = target.getAttribute('href');
+
+	if (!href){
+		return;
+	}
+
+	let soundData = href.substring('sound://'.length);
+	console.log("soundData:", soundData);
+	const soundType = soundData.split('.').pop();
+	console.log("Sound type:", soundType);
+	soundData = soundData.replaceAll('/','\\');
+	soundData = '\\' + soundData; // Ensure soundData starts with '//' for lookup
+	soundData = await mdictEngine.lookupMdd(soundData);
+
+	if (!soundData) {
+		console.error(`Sound data not found for href: ${href}`);
+		return;
+	}
+
+
+
+	// const soundUrl = `data:audio/mpeg;base64,${soundData}`;
+	const audio = new Audio();
+
+	if (soundType === 'mp3') {
+		const soundUrl = `data:audio/mpeg;base64,${soundData}`;
+		audio.src = soundUrl;
+		audio.type = 'audio/mpeg';
+	} else if (soundType === 'ogg') {
+		audio.type = 'audio/ogg';
+	} else if (soundType === 'wav') {
+		const soundUrl = `data:audio/mpeg;base64,${soundData}`;
+		audio.src = soundUrl;
+		audio.type = 'audio/wav';
+	} else if (soundType === 'aac') {
+		audio.type = 'audio/aac';
+	} else if (soundType === 'flac') {
+		audio.type = 'audio/flac';
+	} else if (soundType === 'spx'){
+		// playSpxBase64(soundData);
+		// Convert SPX to MP3
+		const mp3Base64 = await spxBase64ToMp3Base64(soundData);
+		// const mp3Base64 = await convertSpxBase64ToMp3Base64(soundData);
+		if (!mp3Base64) {
+			console.error("Failed to convert SPX to MP3");
+			return;
+		}
+		const soundUrl = `data:audio/mpeg;base64,${mp3Base64}`;
+		audio.src = soundUrl;
+		audio.type = 'audio/mpeg';
+
+
+			
+	} 
+	else {
+		console.error(`Unsupported sound type: ${soundType}`);
+		return;
+	}
+
+	// console.log("Playing sound from URL:", soundUrl);
+	// console.log(audio);
+	audio.play();
+
+	audio.onended = () => {
+		URL.revokeObjectURL(soundUrl); // Clean up the URL after playback
+	};
+	// console.log("Sound data:", soundData);
+
+
+
+
+
+}
+
+onMounted(() => {
+	if (containerRef.value) {
+		containerRef.value.addEventListener('click', handleContainerClick);
+	}
+});
 
 function arrayBufferToBase64(buffer) {
 	let binary = '';
@@ -62,6 +177,16 @@ function arrayBufferToBase64(buffer) {
 		binary += String.fromCharCode(bytes[i]);
 	}
 	return window.btoa(binary);
+}
+
+function base64ToArrayBuffer(base64) {
+	const binaryString = window.atob(base64);
+	const len = binaryString.length;
+	const bytes = new Uint8Array(len);
+	for (let i = 0; i < len; i++) {
+		bytes[i] = binaryString.charCodeAt(i);
+	}
+	return bytes.buffer;
 }
 
 // async function updateImageSources(){
@@ -97,11 +222,11 @@ function arrayBufferToBase64(buffer) {
 // }
 //
 //
-// watch(mdictResult, async () => {
-// 	await nextTick();
-// 	// console.log("mdictResult changed:---------");
-// 	updateImageSources();
-// });
+watch(mdictResult, async () => {
+	await nextTick();
+	// console.log("mdictResult changed:---------");
+	// updateImageSources();
+});
 
 
 // function InitTest(){
@@ -119,4 +244,7 @@ function arrayBufferToBase64(buffer) {
 
 <style>
 @import url('/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/LDCE6/LongmanDictionaryOfContemporaryEnglish6thEnEn.css');
+/* @import url('/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/LomanPhrasalVerb'); */
+/* @import url('/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/OALD9/OALD9EnEn.css'); */
+/* @import url('/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/OELDOnlineV1-51/OELD_style.css'); */
 </style>
