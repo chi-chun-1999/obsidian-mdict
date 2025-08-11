@@ -1,7 +1,7 @@
 <template>
     <input v-model="searchWord" @keyup.enter="definition" placeholder="Search..." />
 	<button @click="definition">Search</button>
-	<div ref="containerRef" v-html="mdictResult"></div>
+	<div ref="containerRef" v-html="mdictResult" ></div>
 
 </template>
 
@@ -20,9 +20,9 @@ const searchWord = ref("");
 function performSearch() {
     submittedWord.value = searchWord.value;
 }
-// let mdictEngine = new MdictEngine("/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/LDCE6/LongmanDictionaryOfContemporaryEnglish6thEnEn.mdx");
+let mdictEngine = new MdictEngine("/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/LDCE6/LongmanDictionaryOfContemporaryEnglish6thEnEn.mdx");
 // let mdictEngine = new MdictEngine("/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/OALD9/OALD9EnEn.mdx");
-let mdictEngine = new MdictEngine("/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/CALD4/CALD4.mdx");
+// let mdictEngine = new MdictEngine("/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/CALD4/CALD4.mdx");
 // let mdictEngine = new MdictEngine("/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/OELDOnlineV1-51/OELDOnlineV1-51.mdx");
 // let mdictEngine = new MdictEngine("/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/LomanPhrasalVerb/[英-英] Longman Phrasal Verbs Dictionary 2nd Edition.mdx");
 
@@ -32,6 +32,7 @@ const containerRef = ref<HTMLDivElement | null>(null);
 let definition = async () => {
 	
 	let result = await mdictEngine.lookup(searchWord.value);
+	searchWord.value = '';
 	// const images = result.querySelectorAll('img');
 	const root = parse(result);
 	const images = root.querySelectorAll('img');
@@ -58,36 +59,38 @@ let definition = async () => {
 
 	mdictResult.value = root.toString();
 
-	// const sounds = root.querySelectorAll('a');
-	// sounds.forEach(sound => {
-	// 	// console.log("Sound element:", sound);
-	// 	let href = sound.getAttribute('href');
-	// 	if (href) {
-	// 		if (href.startsWith('sound')) {
-	// 			// If the href is a full URL, we can skip it
-	// 			return;
-	// 		}
-	// 		// href = href.replaceAll('/','\\');
-	// 		// href = '\\' + href; // Ensure href starts with '//' for lookup
-	// 		// sound.setAttribute('href', href);
-	// 		//
-	// 		// // console.log("Updated sound href:", href);
-	// 		// const soundData = mdictEngine.lookupMdd(href);
-	// 		// if (!soundData) {
-	// 		// 	console.warn(`Sound data not found for href: ${href}`);
-	// 		// 	return;
-	// 		// }
-	// 		// const base64Sound = arrayBufferToBase64(soundData);
-	// 		// sound.setAttribute('href', `data:audio/mpeg;base64,${base64Sound}`);
-	// 	}
-	// });
+
 }
 
 async function handleContainerClick(event: MouseEvent){
-	const target = (event.target as HTMLElement).closest('a[href^="sound://"]');
+	const target = (event.target as HTMLElement).closest('a[href]');
+
+
+
 	if (!target){
-		console.log("Clicked sound link:", target);
+		// console.log("event.target is not a sound link:", event.target);
+		// console.log("Clicked selection:", window.getSelection()?.toString());
+		if( window.getSelection()?.toString()){
+			// console.log("Clicked selection is not empty, ignoring click event.");
+
+			searchWord.value = window.getSelection()?.toString().toLowerCase() || '';
+			
+			definition();
+
+			return;
+		}
+
+		return
 	}
+
+	else if (!target.getAttribute('href')?.startsWith('sound://')) {
+		console.log("Clicked link is not a sound link:", target.getAttribute('href'));
+		event.preventDefault();
+		tmp = await mdictEngine.lookup(target.getAttribute('href') || '');
+		console.log("tmp:", tmp);
+		return;
+	}
+	
 	event.preventDefault();
 	const href = target.getAttribute('href');
 
@@ -96,9 +99,9 @@ async function handleContainerClick(event: MouseEvent){
 	}
 
 	let soundData = href.substring('sound://'.length);
-	console.log("soundData:", soundData);
+	// console.log("soundData:", soundData);
 	const soundType = soundData.split('.').pop();
-	console.log("Sound type:", soundType);
+	// console.log("Sound type:", soundType);
 	soundData = soundData.replaceAll('/','\\');
 	soundData = '\\' + soundData; // Ensure soundData starts with '//' for lookup
 	soundData = await mdictEngine.lookupMdd(soundData);
@@ -112,15 +115,16 @@ async function handleContainerClick(event: MouseEvent){
 
 	// const soundUrl = `data:audio/mpeg;base64,${soundData}`;
 	const audio = new Audio();
+	let soundUrl = "";
 
 	if (soundType === 'mp3') {
-		const soundUrl = `data:audio/mpeg;base64,${soundData}`;
+		soundUrl = `data:audio/mpeg;base64,${soundData}`;
 		audio.src = soundUrl;
 		audio.type = 'audio/mpeg';
 	} else if (soundType === 'ogg') {
 		audio.type = 'audio/ogg';
 	} else if (soundType === 'wav') {
-		const soundUrl = `data:audio/mpeg;base64,${soundData}`;
+		soundUrl = `data:audio/mpeg;base64,${soundData}`;
 		audio.src = soundUrl;
 		audio.type = 'audio/wav';
 	} else if (soundType === 'aac') {
@@ -136,12 +140,10 @@ async function handleContainerClick(event: MouseEvent){
 			console.error("Failed to convert SPX to MP3");
 			return;
 		}
-		const soundUrl = `data:audio/mpeg;base64,${mp3Base64}`;
+		soundUrl = `data:audio/mpeg;base64,${mp3Base64}`;
 		audio.src = soundUrl;
 		audio.type = 'audio/mpeg';
 
-
-			
 	} 
 	else {
 		console.error(`Unsupported sound type: ${soundType}`);
@@ -155,11 +157,6 @@ async function handleContainerClick(event: MouseEvent){
 	audio.onended = () => {
 		URL.revokeObjectURL(soundUrl); // Clean up the URL after playback
 	};
-	// console.log("Sound data:", soundData);
-
-
-
-
 
 }
 
@@ -247,4 +244,12 @@ watch(mdictResult, async () => {
 /* @import url('/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/LomanPhrasalVerb'); */
 /* @import url('/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/OALD9/OALD9EnEn.css'); */
 /* @import url('/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/OELDOnlineV1-51/OELD_style.css'); */
+
+* {
+  -webkit-user-select: auto !important;
+  -moz-user-select: inherit  !important;
+  -ms-user-select: inherit  !important;
+  user-select: auto  !important;
+}
+
 </style>

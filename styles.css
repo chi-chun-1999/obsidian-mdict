@@ -774,5 +774,11 @@ span[onclick*=toggle] {
 .dict-faq img[src*=cover] {
   max-height: 8em;
 }
+* {
+  -webkit-user-select: auto !important;
+  -moz-user-select: inherit !important;
+  -ms-user-select: inherit !important;
+  user-select: auto !important;
+}
 
 /* src/main.css */
