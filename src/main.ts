@@ -7,31 +7,32 @@ import {
     Setting
 } from 'obsidian';
 
-import { MyView, VIEW_TYPE } from './view'
+import { View, VIEW_TYPE } from './view'
+import { MdictSettingTab, DEFAULT_SETTINGS, Settings } from './settings';
 
 
-interface MyPluginSettings {
-    mySetting: string;
-}
 
-const DEFAULT_SETTINGS: MyPluginSettings = {
-    mySetting: 'default'
-}
+// const DEFAULT_SETTINGS: PluginSettings = {
+//     mySetting: 'default'
+// }
 
-export default class MyPlugin extends Plugin {
-    settings: MyPluginSettings;
+export default class MdictPlugin extends Plugin {
+    settings: Settings;
 
     async onload() {
         await this.loadSettings();
 
         this.registerView(
             VIEW_TYPE,
-            (leaf) => new MyView(leaf)
+            (leaf) => new View(leaf)
         )
 
         this.addRibbonIcon('dice', 'Open my view', (evt) => {
             this.activateView()
         })
+
+		this.addSettingTab(new MdictSettingTab(this.app, this));
+		// console.log(this.settings.mySetting);
 
     }
 

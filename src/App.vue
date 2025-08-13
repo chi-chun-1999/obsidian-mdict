@@ -33,6 +33,11 @@ let definition = async () => {
 	
 	let result = await mdictEngine.lookup(searchWord.value);
 	searchWord.value = '';
+	if (!result) {
+		// console.warn(`No result found for: ${searchWord.value}`);
+		// mdictResult.value = `<div class="no-result">No result found for "${searchWord.value}"</div>`;
+		return;
+	}
 	// const images = result.querySelectorAll('img');
 	const root = parse(result);
 	const images = root.querySelectorAll('img');

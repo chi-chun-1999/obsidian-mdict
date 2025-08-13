@@ -4,7 +4,7 @@ import App from './App.vue';
 
 export const VIEW_TYPE: string = 'my-view';
 
-export class MyView extends ItemView {
+export class View extends ItemView {
     vueapp: VueApp;
     constructor(leaf: WorkspaceLeaf) {
         super(leaf);
