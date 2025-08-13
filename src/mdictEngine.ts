@@ -2,6 +2,7 @@ import {MDX, MDD} from 'js-mdict';
 import {spawn} from 'child_process';
 import {PassThrough} from 'stream';
 import ffmpeg from "fluent-ffmpeg";
+import fs from 'fs';
 
 
 
@@ -13,10 +14,16 @@ export class MdictEngine {
 	private mdict: MDX;
 	private mddmdict: MDX;
 
-	constructor(mdictPath: string) {
-		this.mdict = new MDX(mdictPath);
-		this.mddmdict = new MDD(mdictPath.replace(/\.mdx$/, '.mdd'));
+	constructor(mdxMddData ) {
+
+		this.mdict = new MDX(mdxMddData.mdxPath);
+		if (mdxMddData.mddPath)
+			this.mddmdict = new MDD(mdxMddData.mddPath);
+		else
+			this.mddmdict = null;
+
 	}
+	
 
 	lookup(word: string): string | null {
 		const definition = this.mdict.lookup(word);

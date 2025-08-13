@@ -24,7 +24,7 @@ export default class MdictPlugin extends Plugin {
 
         this.registerView(
             VIEW_TYPE,
-            (leaf) => new View(leaf)
+            (leaf) => new View(leaf, this)
         )
 
         this.addRibbonIcon('dice', 'Open my view', (evt) => {

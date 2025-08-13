@@ -1,5 +1,12 @@
 <template>
+
     <input v-model="searchWord" @keyup.enter="definition" placeholder="Search..." />
+
+	<select v-model="mdictSelected" @change="changeMdict">
+		<option v-for="dict in mdictData" :value="dict.mdictFolderPath">{{ dict.mdictName }}</option>
+	</select>
+
+
 	<button @click="definition">Search</button>
 	<div ref="containerRef" v-html="mdictResult" ></div>
 
@@ -12,15 +19,53 @@ import {MdictEngine, spxBase64ToMp3Base64, convertSpxBase64ToMp3Base64} from './
 import { ref, watch, nextTick, onMounted, onUnmounted } from "vue";
 import {parse} from 'node-html-parser';
 import ffmpeg from 'fluent-ffmpeg';
+import {Plugin} from 'obsidian';
+import {getMdxMddPaths} from './helper.ts'
 
 
-let hi = ref("");
+function updateMdictData() {
+	// @ts-ignore
+	// mdictData.value = app.plugins.plugins['obsidian-mdict'].settings.mdictData;
+	mdictData.value = props.plugin.settings.mdictData;
+	if (!mdictData || mdictData.length === 0) {
+		console.warn("No MDIC data found in settings.");
+		return;
+	}
+	// mdictSelected.value = app.plugins.plugins['obsidian-mdict'].settings.mdictData[0].mdictFolderPath || "";
+	mdictSelected.value = props.plugin.settings.mdictData[0].mdictFolderPath || "";
+	console.log("MDICT Data updated:", mdictData.value);
+
+ 
+
+}
+
+function getSettings() {
+	// @ts-ignore
+	// const settings = app.plugins.plugins['obsidian-mdict'].settings;
+	console.log("Settings:", mdictSelected.value);
+}
+
+const props = defineProps<{
+	plugin: Plugin;
+	settings: any;
+	}>();
+
 const searchWord = ref("");
+let mdictSelected = ref(app.plugins.plugins['obsidian-mdict'].settings.mdictData[0].mdictFolderPath || "");
+// let mdictData = ref(app.plugins.plugins['obsidian-mdict'].settings.mdictData);
+const mdictData = ref(props.plugin.settings.mdictData);
 
 function performSearch() {
     submittedWord.value = searchWord.value;
 }
-let mdictEngine = new MdictEngine("/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/LDCE6/LongmanDictionaryOfContemporaryEnglish6thEnEn.mdx");
+
+let mdictEngine = new MdictEngine(getMdxMddPaths(mdictSelected.value));
+
+
+
+
+
+
 // let mdictEngine = new MdictEngine("/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/OALD9/OALD9EnEn.mdx");
 // let mdictEngine = new MdictEngine("/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/CALD4/CALD4.mdx");
 // let mdictEngine = new MdictEngine("/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/OELDOnlineV1-51/OELDOnlineV1-51.mdx");
@@ -29,10 +74,26 @@ let mdictEngine = new MdictEngine("/Users/chi-chun/project/obsidian/dev-plug/.ob
 let mdictResult = ref("");
 const containerRef = ref<HTMLDivElement | null>(null);
 
+function changeMdict() {
+	if (!mdictSelected.value) {
+		console.warn("No MDIC selected.");
+		return;
+	}
+	mdictEngine = new MdictEngine(getMdxMddPaths(mdictSelected.value));
+	// mdictResult.value = '';
+	// searchWord.value = '';
+	if (searchWord.value) {
+		definition();
+	} else {
+		mdictResult.value = '';
+	}
+}
+
 let definition = async () => {
+	// console.log(mdictSelected.value);
 	
 	let result = await mdictEngine.lookup(searchWord.value);
-	searchWord.value = '';
+	// searchWord.value = '';
 	if (!result) {
 		// console.warn(`No result found for: ${searchWord.value}`);
 		// mdictResult.value = `<div class="no-result">No result found for "${searchWord.value}"</div>`;
@@ -68,6 +129,7 @@ let definition = async () => {
 }
 
 async function handleContainerClick(event: MouseEvent){
+	
 	const target = (event.target as HTMLElement).closest('a[href]');
 
 
@@ -166,14 +228,26 @@ async function handleContainerClick(event: MouseEvent){
 }
 
 onMounted(() => {
+
 	if (containerRef.value) {
 		containerRef.value.addEventListener('click', handleContainerClick);
 	}
+	props.plugin.app.workspace.on('mdict:settings-updated', updateMdictData);
+
+	// let mdxMddData = getMdxMddPaths(app.plugins.plugins['obsidian-mdict'].settings.mdictData[0].mdictFolderPath);
+	// console.log("mdxMddData:", mdxMddData);
+
+});
+
+onUnmounted(() => {
+	if (containerRef.value) {
+		containerRef.value.removeEventListener('click', handleContainerClick);
+	}
+	props.plugin.app.workspace.off('mdict:settings-updated', updateMdictData);
 });
 
 function arrayBufferToBase64(buffer) {
 	let binary = '';
-	const bytes = new Uint8Array(buffer);
 	const len = bytes.byteLength;
 	for (let i = 0; i < len; i++) {
 		binary += String.fromCharCode(bytes[i]);
@@ -191,39 +265,6 @@ function base64ToArrayBuffer(base64) {
 	return bytes.buffer;
 }
 
-// async function updateImageSources(){
-// 	if (!containerRef.value){
-// 		console.warn("containerRef is not set.");
-// 		return;
-//
-// 	} 
-//
-// 	const images = containerRef.value.querySelectorAll('img');
-// 	for (const img of images) {
-// 		let src = img.getAttribute('src');
-// 		// console.log("Image src:", src);
-// 		if (src ) {
-// 			src = src.replaceAll('/','\\');
-// 			src = '\\' + src; // Ensure src starts with '//' for lookup
-// 		// console.log("Image src:", src);
-//
-// 			// console.log(mdictEngine.lookupMdd(src));
-// 			const imageData = await mdictEngine.lookupMdd(src);
-// 			if (!imageData) {
-// 				// console.warn(`Image data not found for src: ${src}`);
-// 				continue;
-// 			}
-//
-// 			// Convert the image data to a base64 string
-// 			// const base64String = arrayBufferToBase64(imageData);
-// 			// Set the src attribute to the base64 encoded string
-// 			img.setAttribute('src', `data:image/png;base64,${imageData}`);
-// 		}
-// 	}
-//
-// }
-//
-//
 watch(mdictResult, async () => {
 	await nextTick();
 	// console.log("mdictResult changed:---------");
@@ -231,13 +272,6 @@ watch(mdictResult, async () => {
 });
 
 
-// function InitTest(){
-// 	let result = mdictEngine.lookup("dog");
-// 	// console.log("InitTest result:", result);
-// 	mdictResult.value = result;
-// }
-//
-// InitTest();
 
 
 </script>

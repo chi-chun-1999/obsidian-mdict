@@ -1,8 +1,10 @@
 import Plugin from './main';
 import { App, PluginSettingTab, Setting } from 'obsidian';
+import {View} from './view';
+
 
 export const DEFAULT_SETTINGS: Settings = {
-	mdictDataPath: [{
+	mdictData: [{
 		mdictName: '',
 		mdictFolderPath: ''}]
 
@@ -10,7 +12,7 @@ export const DEFAULT_SETTINGS: Settings = {
 
 
 export interface Settings{
-	mdictDataPath: Array<mdictData>;
+	mdictData: Array<mdictData>;
 }
 
 export interface mdictData{
@@ -27,33 +29,43 @@ export class MdictSettingTab extends PluginSettingTab {
 	}
 
 	display(): void {
-		console.log(this.plugin.settings.mdictDataPath);
+		// console.log(this.plugin.settings.mdictDataPath);
 		const { containerEl } = this;
 
 		containerEl.empty();
 
 		containerEl.createEl('h2', { text: 'Mdict Data Path' });
 
-		this.plugin.settings.mdictDataPath.forEach((md, index) => {
+		this.plugin.settings.mdictData.forEach((md, index) => {
 			const s = new Setting(containerEl)
 					.addText((cb) => {
 						cb.setPlaceholder('Enter Mdict Folder Path')
 							.setValue(md.mdictFolderPath)
 							.onChange(async (value) => {
 								let folderName = value.split('/').pop() || '';
-								this.plugin.settings.mdictDataPath[index] = {mdictName: folderName, mdictFolderPath: value};
-								await this.plugin.saveSettings();
+								this.plugin.settings.mdictData[index] = {mdictName: folderName, mdictFolderPath: value};
 							});
 						
 						cb.inputEl.addClass('mdict-path-input');
 					
 					})
 					.addExtraButton(button => {
+						button.setIcon('check')
+							.setTooltip('Add new Mdict path')
+							.onClick(async () => {
+								await this.plugin.saveSettings();
+								this.plugin.app.workspace.trigger('mdict:settings-updated');
+								this.display(); // Refresh the settings display
+							});
+							
+					})
+					.addExtraButton(button => {
 						button.setIcon('trash')
 							.setTooltip('Remove this path')
 							.onClick(async () => {
-								this.plugin.settings.mdictDataPath.splice(index, 1);
+								this.plugin.settings.mdictData.splice(index, 1);
 								await this.plugin.saveSettings();
+								this.plugin.app.workspace.trigger('mdict:settings-updated');
 								this.display(); // Refresh the settings display
 							});
 					});
@@ -69,8 +81,9 @@ export class MdictSettingTab extends PluginSettingTab {
 				button.setButtonText('Add New Mdict Path')
 					.setCta()
 					.onClick(async () => {
-						this.plugin.settings.mdictDataPath.push({mdictName:"", mdictFolderPath:""});
+						this.plugin.settings.mdictData.push({mdictName:"", mdictFolderPath:""});
 						await this.plugin.saveSettings();
+						this.plugin.app.workspace.trigger('mdict:settings-updated');
 						this.display(); // Refresh the settings display
 					});
 

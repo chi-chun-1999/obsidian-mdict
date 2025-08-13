@@ -1,13 +1,20 @@
 import { ItemView, WorkspaceLeaf } from 'obsidian';
 import { createApp, App as VueApp } from 'vue';
 import App from './App.vue';
+import { Settings } from './settings';
+import {MdictPlugin} from './main';
 
 export const VIEW_TYPE: string = 'my-view';
 
 export class View extends ItemView {
     vueapp: VueApp;
-    constructor(leaf: WorkspaceLeaf) {
+	// settings: Settings;
+	plugin: MdictPlugin;
+    constructor(leaf: WorkspaceLeaf, plugin:MdictPlugin) {
         super(leaf);
+		this.plugin = plugin;
+		// this.settings = settings;
+		// console.log('-->',settings.mdictDataPath);
     }
     getViewType(): string {
         return VIEW_TYPE;
@@ -25,11 +32,17 @@ export class View extends ItemView {
             cls: "my-plugin-view"
         });
 
-        this.vueapp = createApp(App);
+        this.vueapp = createApp(App, {
+			settings: this.plugin.settings,
+			plugin: this.plugin,
+		});
         this.vueapp.mount(content);
     }
     async onClose() {
         this.vueapp.unmount();
     }
+	updateSettings(mdictData: Settings) {
+		this.vueapp.config.globalProperties.$settings = mdictData;
+	}
 
 }
