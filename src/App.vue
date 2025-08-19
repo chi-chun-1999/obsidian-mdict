@@ -20,7 +20,8 @@ import { ref, watch, nextTick, onMounted, onUnmounted } from "vue";
 import {parse} from 'node-html-parser';
 import ffmpeg from 'fluent-ffmpeg';
 import {Plugin} from 'obsidian';
-import {getMdxMddPaths} from './helper.ts'
+import {getMdxMddPaths, getCssPaths} from './helper.ts'
+import * as fs from 'fs';
 
 
 function updateMdictData() {
@@ -34,6 +35,7 @@ function updateMdictData() {
 	// mdictSelected.value = app.plugins.plugins['obsidian-mdict'].settings.mdictData[0].mdictFolderPath || "";
 	mdictSelected.value = props.plugin.settings.mdictData[0].mdictFolderPath || "";
 	console.log("MDICT Data updated:", mdictData.value);
+	// loadCss();
 
  
 
@@ -61,6 +63,28 @@ function performSearch() {
 
 let mdictEngine = new MdictEngine(getMdxMddPaths(mdictSelected.value));
 
+// load css
+// function loadCss() {
+// 	if (!mdictSelected.value) {
+// 		console.warn("No MDIC selected.");
+// 		return;
+// 	}
+// 	// const cssPath = getMdxMddPaths(mdictSelected.value).replace('.mdx', '.css');
+// 	const cssPath = getCssPaths(mdictSelected.value);
+// 	console.log("CSS Path:", cssPath);
+// 	// import(cssPath)
+// 	// 	.then(() => {
+// 	// 		console.log("CSS loaded successfully:", cssPath);
+// 	// 	})
+// 	// 	.catch((error) => {
+// 	// 		console.error("Error loading CSS:", error);
+// 	// 	});
+//
+// 	const link = document.createElement('link');
+// 	link.rel = 'stylesheet';
+// 	link.href = cssPath;
+// 	document.head.appendChild(link);
+// }
 
 
 
@@ -79,7 +103,9 @@ function changeMdict() {
 		console.warn("No MDIC selected.");
 		return;
 	}
+
 	mdictEngine = new MdictEngine(getMdxMddPaths(mdictSelected.value));
+	// loadCss();
 	// mdictResult.value = '';
 	// searchWord.value = '';
 	if (searchWord.value) {
@@ -99,8 +125,45 @@ let definition = async () => {
 		// mdictResult.value = `<div class="no-result">No result found for "${searchWord.value}"</div>`;
 		return;
 	}
-	// const images = result.querySelectorAll('img');
+
 	const root = parse(result);
+
+	// change css path
+
+	const cssfile = root.querySelector('link[rel="stylesheet"]');
+	if (cssfile) {
+		const cssPath = mdictSelected.value+'/' + cssfile.getAttribute('href');
+		// console.log("CSS Path:", mdictSelected.value, cssfile.getAttribute('href'), cssPath);
+		cssfile.remove();
+		try {
+			const cssContent = fs.readFileSync(cssPath, 'utf-8');
+			const style = parse(`<style>${cssContent}</style>`);
+			// console.log("CSS Content:", style.toString());
+			// root.querySelector('head').appendChild(style);
+			// root.querySelector('head')?.appendChild(style);
+
+			// root.querySelector('head')?.appendChild(parse(style.toString()));
+
+			root.appendChild(style);
+			
+
+		} catch (e) {
+			console.error("Error reading or injecting CSS:", e);
+		}
+	} else {
+		console.warn("No CSS file found in the result.");
+	}
+
+// 	const link = document.createElement('link');
+// 	link.rel = 'stylesheet';
+// 	link.href = cssPath;
+// 	document.head.appendChild(link);
+
+
+
+
+
+	// const images = result.querySelectorAll('img');
 	const images = root.querySelectorAll('img');
 	if (images.length > 0) {
 		// console.log("Images found:", images);
@@ -137,15 +200,15 @@ async function handleContainerClick(event: MouseEvent){
 	if (!target){
 		// console.log("event.target is not a sound link:", event.target);
 		// console.log("Clicked selection:", window.getSelection()?.toString());
-		if( window.getSelection()?.toString()){
-			// console.log("Clicked selection is not empty, ignoring click event.");
-
-			searchWord.value = window.getSelection()?.toString().toLowerCase() || '';
-			
-			definition();
-
-			return;
-		}
+		// if( window.getSelection()?.toString()){
+		// 	// console.log("Clicked selection is not empty, ignoring click event.");
+		//
+		// 	searchWord.value = window.getSelection()?.toString().toLowerCase() || '';
+		//
+		// 	definition();
+		//
+		// 	return;
+		// }
 
 		return
 	}
@@ -279,7 +342,9 @@ watch(mdictResult, async () => {
 
 
 <style>
-@import url('/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/LDCE6/LongmanDictionaryOfContemporaryEnglish6thEnEn.css');
+/* @import url('/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/LDCE6/LongmanDictionaryOfContemporaryEnglish6thEnEn.css'); */
+/* @import url('/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/LongmanCollocationsDictionaryAndThesaurusEnEn/LongmanCollocationsDictionaryAndThesaurusEnEn.css'); */
+/* @import url('/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/chineseMdict/gycd_edutw.css'); */
 /* @import url('/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/LomanPhrasalVerb'); */
 /* @import url('/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/OALD9/OALD9EnEn.css'); */
 /* @import url('/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/OELDOnlineV1-51/OELD_style.css'); */

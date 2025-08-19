@@ -16,3 +16,14 @@ export function getMdxMddPaths(folderPath: string): { mdxPath: string; mddPath: 
 	return { mdxPath, mddPath };
 }
 
+export function getCssPaths(folderPath: string): string {
+	if (!fs.existsSync(folderPath)) {
+		return null;
+	}
+	const files = fs.readdirSync(folderPath);
+	const cssFiles = files.find(file => file.endsWith('.css'));
+	const cssPaths = cssFiles ? `${folderPath}/${cssFiles}` : null;
+
+	return cssPaths;
+	
+}

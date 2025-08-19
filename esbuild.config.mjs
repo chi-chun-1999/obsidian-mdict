@@ -19,6 +19,12 @@ await esbuild.build({
     plugins: [
         Vue({ isProd: true })
     ],
+    loader: {
+        '.woff': 'dataurl',
+        '.woff2': 'dataurl',
+        '.ttf': 'dataurl',
+        '.eot': 'dataurl',
+    },
     entryPoints: ['./src/main.ts'],
     bundle: true,
     external: [
