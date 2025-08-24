@@ -138,11 +138,6 @@ let definition = async () => {
 		try {
 			const cssContent = fs.readFileSync(cssPath, 'utf-8');
 			const style = parse(`<style>${cssContent}</style>`);
-			// console.log("CSS Content:", style.toString());
-			// root.querySelector('head').appendChild(style);
-			// root.querySelector('head')?.appendChild(style);
-
-			// root.querySelector('head')?.appendChild(parse(style.toString()));
 
 			root.appendChild(style);
 			
@@ -154,28 +149,22 @@ let definition = async () => {
 		console.warn("No CSS file found in the result.");
 	}
 
-// 	const link = document.createElement('link');
-// 	link.rel = 'stylesheet';
-// 	link.href = cssPath;
-// 	document.head.appendChild(link);
 
 
-
-
-
-	// const images = result.querySelectorAll('img');
 	const images = root.querySelectorAll('img');
 	if (images.length > 0) {
-		// console.log("Images found:", images);
-		// console.log("Image srcs:", images.map(img => img.getAttribute('src')));
 		images.forEach(img => {
 			let src = img.getAttribute('src');
 			if (src) {
-				src = src.replaceAll('/','\\');
-				src = '\\' + src; // Ensure src starts with '//' for lookup
+				if (src.includes('/')){
+					src = src.replaceAll('/','\\');
+					if (!src.startsWith('\\')) {
+						src = '\\' + src; // Ensure src starts with '\' for lookup
+					}
+				}
+
 				img.setAttribute('src', src);
 
-				// console.log("Updated image src:", src);
 				const imageData = mdictEngine.lookupMdd(src);
 				if (!imageData) {
 					console.warn(`Image data not found for src: ${src}`);
