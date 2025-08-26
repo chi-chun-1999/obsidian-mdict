@@ -21,7 +21,7 @@ import {parse} from 'node-html-parser';
 import ffmpeg from 'fluent-ffmpeg';
 import {Plugin} from 'obsidian';
 import {getMdxMddPaths, getCssPaths, playAudio} from './helper.ts'
-import fs from 'fs';
+import * as fs from 'fs';
 
 
 function updateMdictData() {
@@ -92,44 +92,21 @@ function changeMdict() {
 	}
 }
 
-function processMdictResult(result: string) {
+let definition = async () => {
+	// console.log(mdictSelected.value);
+	
+	let result = await mdictEngine.lookup(searchWord.value);
+	// searchWord.value = '';
+	if (!result) {
+		// console.warn(`No result found for: ${searchWord.value}`);
+		// mdictResult.value = `<div class="no-result">No result found for "${searchWord.value}"</div>`;
+		return;
+	}
+
 	const root = parse(result);
 
 	// change css path
-	const cssfile = root.querySelector('link[rel="stylesheet"]');
-	if (cssfile) {
-		const cssPath = mdictSelected.value+'/' + cssfile.getAttribute('href');
-		// console.log("CSS Path:", mdictSelected.value, cssfile.getAttribute('href'), cssPath);
-		cssfile.remove();
-		try {
-			let cssContent = fs.readFileSync(cssPath, 'utf-8');
-			// replace all img[src*= to img[alt*=
-			cssContent = cssContent.replaceAll('img[src*=', 'img[alt*=');
-			
 
-
-			const style = parse(`<style>${cssContent}</style>`);
-
-			// root.appendChild(style);
-			root.insertAdjacentHTML('beforeend', style.toString());
-			
-
-		} catch (e) {
-			console.error("Error reading or injecting CSS:", e);
-		}
-	} else {
-		console.warn("No CSS file found in the result.");
-	}
-
-	// remove tooltip
-	const tooltipts = root.querySelectorAll('span[class="level tooltip"]');
-	if (tooltipts.length > 0) {
-		tooltipts.forEach(tooltip => {
-			// tooltip.replaceWith(tooltip.innerHTML);
-			// console.log("Removing tooltip:", tooltip.toString());
-			tooltip.setAttribute('class', 'level');
-		});
-	}
 
 
 
@@ -137,7 +114,6 @@ function processMdictResult(result: string) {
 	if (images.length > 0) {
 		images.forEach(img => {
 			let src = img.getAttribute('src');
-			const srcOri = src;
 			// console.log("Original img src:", src);
 			if (src) {
 				if (src.includes('/')){
@@ -159,38 +135,42 @@ function processMdictResult(result: string) {
 					return;
 				}
 				img.setAttribute('src', `data:image/png;base64,${imageData}`);
-				img.setAttribute('alt', srcOri || '');
 			}
 		});
 	}
 
-	const anchors = root.querySelectorAll('a[href^="entry://#"]');
+	const cssfile = root.querySelector('link[rel="stylesheet"]');
+	if (cssfile) {
+		const cssPath = mdictSelected.value+'/' + cssfile.getAttribute('href');
+		// console.log("CSS Path:", mdictSelected.value, cssfile.getAttribute('href'), cssPath);
+		cssfile.remove();
+		try {
+			const cssContent = fs.readFileSync(cssPath, 'utf-8');
+			const style = parse(`<style>${cssContent}</style>`);
+
+			root.appendChild(style);
+			
+
+		} catch (e) {
+			console.error("Error reading or injecting CSS:", e);
+		}
+	} else {
+		console.warn("No CSS file found in the result.");
+	}
+
+	mdictResult.value = root.toString();
+
+	const anchors = root.querySelectorAll('a[href="entry://"]');
 	if (anchors.length > 0) {
 		anchors.forEach(anchor => {
-			let anchorLoc = anchor.getAttribute('href');
-			anchorLoc = anchorLoc?.replace('entry://#', '#');
-			anchor.setAttribute('href', anchorLoc || '#');
-
-
+			// anchor.setAttribute('href', `sound://${searchWord.value}.mp3`);
 			// console.log("Found entry link, removing href");
-			// console.log("anchor:", anchor.toString());
+			console.log("anchor:", anchor.toString());
 		});
-	}
-	return root.toString();
-}
-
-let definition = async () => {
-	// console.log(mdictSelected.value);
-	
-	let result = await mdictEngine.lookup(searchWord.value);
-	// searchWord.value = '';
-	if (!result) {
-		// console.warn(`No result found for: ${searchWord.value}`);
-		// mdictResult.value = `<div class="no-result">No result found for "${searchWord.value}"</div>`;
-		return;
+		mdictResult.value = root.toString();
 	}
 
-	mdictResult.value = processMdictResult(result);
+
 }
 
 async function handleContainerClick(event: MouseEvent){
@@ -204,39 +184,14 @@ async function handleContainerClick(event: MouseEvent){
 		return
 	}
 
-	else if (target.getAttribute('href')?.startsWith('#')) {
-		// This is an anchor link, let the browser handle it.
-		// event.preventDefault();
-
-		// const bottom = target.offsetTop + target.offsetHeight;
-		// const maxScrollTop = (containerRef.value?.scrollHeight || 0) - (containerRef.value?.clientHeight || 0);
-		//
-		//
-		// // console.log("bottom:", bottom, "maxScrollTop:", maxScrollTop);
-		// console.log('containerRef:', containerRef.value.scrollHeight);
-		// console.log('containerRef:', containerRef.value.clientHeight);
-		// console.log('containerRef:', containerRef);
-		// // console.log("containerRef:", containerRef.value?.scollHeight, containerRef.value?.clientHeight);
-		//
-		// const scrollTop = Math.min(bottom - (containerRef.value?.clientHeight || 0), maxScrollTop);
-		// if (containerRef.value) {
-		// 	containerRef.value.scrollTo({
-		// 		top: scrollTop,
-		// 		behavior: 'smooth'
-		// 	});
-		// }
-		//
-		// console.log("Anchor link clicked:", target.getAttribute('href'));
-		return;
-	}
 	else if (!target.getAttribute('href')?.startsWith('sound://')) {
-		let tmp = await mdictEngine.lookup(target.getAttribute('href') || '');
-		if (tmp) {
-			mdictResult.value = processMdictResult(tmp);
-		}
+		console.log("Clicked link is not a sound link:", target.getAttribute('href'));
+		event.preventDefault();
+		tmp = await mdictEngine.lookup(target.getAttribute('href') || '');
+		console.log("tmp:", tmp);
 		return;
 	}
-
+	
 	event.preventDefault();
 	const href = target.getAttribute('href');
 
@@ -302,6 +257,5 @@ watch(mdictResult, async () => {
   -ms-user-select: inherit  !important;
   user-select: auto  !important;
 }
-
 
 </style>

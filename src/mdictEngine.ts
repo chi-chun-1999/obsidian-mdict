@@ -15,6 +15,7 @@ export class MdictEngine {
 	private mddmdict: MDX;
 
 	constructor(mdxMddData ) {
+		// console.log('mdxMddData', mdxMddData);
 
 		this.mdict = new MDX(mdxMddData.mdxPath);
 		if (mdxMddData.mddPath)
