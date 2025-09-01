@@ -1,14 +1,29 @@
 <template>
 
+
+
+<div class="toolbar">
+  <!-- 字典選擇 -->
+  <div class="dict-select">
+    <label for="dict">Dictionary:</label>
+    <select id="dict" v-model="mdictSelected" @change="changeMdict">
+      <option v-for="dict in mdictData" :value="dict.mdictFolderPath">{{ dict.mdictName }}</option>
+    </select>
+  </div>
+
+  <!-- 搜尋列 -->
+  <div class="search-bar">
+	<button class="history-btn" @click="goBack" :disabled="historyIndex <= 0">&#8592;</button>
+    <button class="history-btn" @click="goForward" :disabled="historyIndex >= wordHistory.length - 1">&#8594;</button>
+
     <input v-model="searchWord" @keyup.enter="definition" placeholder="Search..." />
+    <button @click="definition">Search</button>
+  </div>
+</div>
 
-	<select v-model="mdictSelected" @change="changeMdict">
-		<option v-for="dict in mdictData" :value="dict.mdictFolderPath">{{ dict.mdictName }}</option>
-	</select>
+<div ref="containerRef" v-html="mdictResult"></div>
 
 
-	<button @click="definition">Search</button>
-	<div ref="containerRef" v-html="mdictResult" ></div>
 
 </template>
 
@@ -41,6 +56,25 @@ function updateMdictData() {
 
 }
 
+function goBack() {
+	if (historyIndex.value > 0) {
+		historyIndex.value--;
+		searchWord.value = wordHistory.value[historyIndex.value];
+		definitionHistory();
+	}
+}
+function goForward() {
+	// Future enhancement: Implement forward history if needed
+	// Currently, this function does nothing
+	if (historyIndex.value < wordHistory.value.length - 1) {
+		historyIndex.value++;
+		searchWord.value = wordHistory.value[historyIndex.value];
+		definitionHistory();
+	}
+
+	return;
+}
+
 function getSettings() {
 	// @ts-ignore
 	// const settings = app.plugins.plugins['obsidian-mdict'].settings;
@@ -57,25 +91,14 @@ let mdictSelected = ref(app.plugins.plugins['obsidian-mdict'].settings.mdictData
 // let mdictData = ref(app.plugins.plugins['obsidian-mdict'].settings.mdictData);
 const mdictData = ref(props.plugin.settings.mdictData);
 
-function performSearch() {
-    submittedWord.value = searchWord.value;
-}
 
 let mdictEngine = new MdictEngine(getMdxMddPaths(mdictSelected.value));
 
-
-
-
-
-
-// let mdictEngine = new MdictEngine("/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/OALD9/OALD9EnEn.mdx");
-// let mdictEngine = new MdictEngine("/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/CALD4/CALD4.mdx");
-// let mdictEngine = new MdictEngine("/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/OELDOnlineV1-51/OELDOnlineV1-51.mdx");
-// let mdictEngine = new MdictEngine("/Users/chi-chun/project/obsidian/dev-plug/.obsidian/plugins/obsidian-mdict/mdict/LomanPhrasalVerb/[英-英] Longman Phrasal Verbs Dictionary 2nd Edition.mdx");
-
-
+let wordHistory = ref<string[]>([]);
+let historyIndex = ref(-1);
 let mdictResult = ref("");
 const containerRef = ref<HTMLDivElement | null>(null);
+
 
 function changeMdict() {
 	if (!mdictSelected.value) {
@@ -92,7 +115,17 @@ function changeMdict() {
 	}
 }
 
-function processMdictResult(result: string) {
+async function processMdictResult(result: string) {
+
+	if (result.includes(`@@@LINK=`)){
+		
+		result = result.replaceAll('\n','').replaceAll('\r','');
+		searchWord.value = result.replaceAll('@@@LINK=','').trim();
+
+		result = await mdictEngine.lookup(searchWord.value);
+		
+	}
+
 	const root = parse(result);
 
 	// change css path
@@ -106,8 +139,6 @@ function processMdictResult(result: string) {
 			// replace all img[src*= to img[alt*=
 			cssContent = cssContent.replaceAll('img[src*=', 'img[alt*=');
 			
-
-
 			const style = parse(`<style>${cssContent}</style>`);
 
 			// root.appendChild(style);
@@ -118,7 +149,30 @@ function processMdictResult(result: string) {
 			console.error("Error reading or injecting CSS:", e);
 		}
 	} else {
-		console.warn("No CSS file found in the result.");
+		// console.warn("No CSS file found in the result.");
+	}
+
+	const jsfiles = root.querySelectorAll('script[src]');
+	if (jsfiles.length > 0) {
+		jsfiles.forEach(jsfile => {
+			// console.log("Removing JS file:", jsfile.getAttribute('src'));
+			const jsPath = mdictSelected.value+'/' + jsfile.getAttribute('src');
+			// console.log("JS Path:", mdictSelected.value, jsfile.getAttribute('src'), jsPath);
+			// jsfile.setAttribute('src', jsPath || '');
+			jsfile.remove();
+
+			try {
+				// console.log("Injecting JS file:", jsPath);
+				const jsContent = fs.readFileSync(jsPath, 'utf-8');
+				(0,eval)(jsContent);
+
+
+			} catch (e) {
+				console.error("Error reading or injecting JS:", e);
+			}
+
+
+		});
 	}
 
 	// remove tooltip
@@ -181,7 +235,7 @@ function processMdictResult(result: string) {
 
 let definition = async () => {
 	// console.log(mdictSelected.value);
-	
+
 	let result = await mdictEngine.lookup(searchWord.value);
 	// searchWord.value = '';
 	if (!result) {
@@ -190,49 +244,49 @@ let definition = async () => {
 		return;
 	}
 
-	mdictResult.value = processMdictResult(result);
+	wordHistory.value = wordHistory.value.slice(0, historyIndex.value + 1);
+	wordHistory.value.push(searchWord.value);
+	historyIndex.value = wordHistory.value.length - 1;
+
+	mdictResult.value = await processMdictResult(result);
+}
+
+let definitionHistory = async () => {
+	// console.log(mdictSelected.value);
+
+	let result = await mdictEngine.lookup(searchWord.value);
+	if (!result) {
+		return;
+	}
+
+	mdictResult.value = await processMdictResult(result);
 }
 
 async function handleContainerClick(event: MouseEvent){
 	
 	const target = (event.target as HTMLElement).closest('a[href]');
 
-
-
 	if (!target){
 
 		return
 	}
 
-	else if (target.getAttribute('href')?.startsWith('#')) {
-		// This is an anchor link, let the browser handle it.
-		// event.preventDefault();
+	else if (target.getAttribute('href')?.startsWith('entry://')) {
+		event.preventDefault();
+		const entryId = target.getAttribute('href')?.substring('entry://'.length);
+		console.log("Entry ID:", entryId);
+		searchWord.value = entryId || '';
+		await definition();
 
-		// const bottom = target.offsetTop + target.offsetHeight;
-		// const maxScrollTop = (containerRef.value?.scrollHeight || 0) - (containerRef.value?.clientHeight || 0);
-		//
-		//
-		// // console.log("bottom:", bottom, "maxScrollTop:", maxScrollTop);
-		// console.log('containerRef:', containerRef.value.scrollHeight);
-		// console.log('containerRef:', containerRef.value.clientHeight);
-		// console.log('containerRef:', containerRef);
-		// // console.log("containerRef:", containerRef.value?.scollHeight, containerRef.value?.clientHeight);
-		//
-		// const scrollTop = Math.min(bottom - (containerRef.value?.clientHeight || 0), maxScrollTop);
-		// if (containerRef.value) {
-		// 	containerRef.value.scrollTo({
-		// 		top: scrollTop,
-		// 		behavior: 'smooth'
-		// 	});
-		// }
-		//
-		// console.log("Anchor link clicked:", target.getAttribute('href'));
+		// console.log("Entry link clicked:", target.getAttribute('href'));
+		
+
 		return;
 	}
 	else if (!target.getAttribute('href')?.startsWith('sound://')) {
 		let tmp = await mdictEngine.lookup(target.getAttribute('href') || '');
 		if (tmp) {
-			mdictResult.value = processMdictResult(tmp);
+			mdictResult.value = await processMdictResult(tmp);
 		}
 		return;
 	}
@@ -285,6 +339,8 @@ onUnmounted(() => {
 
 watch(mdictResult, async () => {
 	await nextTick();
+
+
 });
 
 
@@ -301,6 +357,72 @@ watch(mdictResult, async () => {
   -moz-user-select: inherit  !important;
   -ms-user-select: inherit  !important;
   user-select: auto  !important;
+}
+
+.toolbar {
+  display: flex;
+  flex-direction: column;  /* 預設直向 */
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+/* select 區塊 */
+.dict-select label {
+  margin-right: 8px;
+  font-size: 14px;
+  color: #555;
+}
+
+.dict-select select {
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  width: 100px;
+}
+
+/* 搜尋列 */
+.search-bar {
+  display: flex;
+  gap: 6px;
+}
+
+.search-bar input {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.search-bar input:focus {
+  border-color: #4a90e2;
+  box-shadow: 0 0 4px rgba(74, 144, 226, 0.3);
+}
+
+.search-bar button {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 4px;
+  background-color: #4a90e2;
+  color: white;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.search-bar button:hover {
+  background-color: #357ab7;
+}
+
+/* 左右箭頭專用樣式 */
+.history-btn {
+  background-color: #eee;
+  color: #333;
+  font-size: 16px;
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+}
+
+.history-btn:hover {
+  background-color: #ddd;
 }
 
 

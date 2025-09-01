@@ -6,5 +6,58 @@
   -ms-user-select: inherit !important;
   user-select: auto !important;
 }
+.toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.dict-select label {
+  margin-right: 8px;
+  font-size: 14px;
+  color: #555;
+}
+.dict-select select {
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  width: 100px;
+}
+.search-bar {
+  display: flex;
+  gap: 6px;
+}
+.search-bar input {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+.search-bar input:focus {
+  border-color: #4a90e2;
+  box-shadow: 0 0 4px rgba(74, 144, 226, 0.3);
+}
+.search-bar button {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 4px;
+  background-color: #4a90e2;
+  color: white;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.search-bar button:hover {
+  background-color: #357ab7;
+}
+.history-btn {
+  background-color: #eee;
+  color: #333;
+  font-size: 16px;
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+}
+.history-btn:hover {
+  background-color: #ddd;
+}
 
 /* src/main.css */

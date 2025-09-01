@@ -6,9 +6,10 @@ import {View} from './view';
 export const DEFAULT_SETTINGS: Settings = {
 	mdictData: [{
 		mdictName: '',
-		mdictFolderPath: ''}]
+		mdictFolderPath: ''}],
 
 };
+
 
 
 export interface Settings{
