@@ -35,6 +35,13 @@ export class MdictEngine {
 		return definition ? definition.definition : null;
 	}
 
+	fuzzyLookup(word: string): Array<string> {
+		const results = this.mdict.fuzzy_search(word, 5, 10);
+		return results.map(result => result.keyText);
+	}
+
+
+
 }
 
 export async function spxBase64ToMp3Base64(spxBase64: string): Promise<string> {

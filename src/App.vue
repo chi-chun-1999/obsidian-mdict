@@ -240,7 +240,19 @@ let definition = async () => {
 	// searchWord.value = '';
 	if (!result) {
 		// console.warn(`No result found for: ${searchWord.value}`);
-		// mdictResult.value = `<div class="no-result">No result found for "${searchWord.value}"</div>`;
+		mdictResult.value = `<div class="no-result">No result found for "${searchWord.value}"</div>`;
+
+		let fuzzyResult = mdictEngine.fuzzyLookup(searchWord.value);
+
+		if (fuzzyResult && fuzzyResult.length > 0) {
+			let fuzzyHtml = `<div class="fuzzy-result"><p>Did you mean:</p><ul>`;
+			fuzzyResult.forEach(word => {
+				fuzzyHtml += `<li><a href="entry://${word}">${word}</a></li>`;
+			});
+			fuzzyHtml += `</ul></div>`;
+			mdictResult.value += fuzzyHtml;
+		}
+
 		return;
 	}
 
@@ -274,7 +286,7 @@ async function handleContainerClick(event: MouseEvent){
 	else if (target.getAttribute('href')?.startsWith('entry://')) {
 		event.preventDefault();
 		const entryId = target.getAttribute('href')?.substring('entry://'.length);
-		console.log("Entry ID:", entryId);
+		// console.log("Entry ID:", entryId);
 		searchWord.value = entryId || '';
 		await definition();
 
